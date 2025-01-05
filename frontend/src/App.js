@@ -1,10 +1,11 @@
 import React from 'react';
-import FileUpload from './FileUpload'; // Adjust the import path based on your project structure
+import FileUpload from './FileUpload'; 
+import './App.css'; 
 
 const App = () => {
   return (
-    <div>
-      <h1>Image Classification App</h1>
+    <div className="main-container">
+      <h1>Chinese Character Classification App</h1>
       <FileUpload />
     </div>
   );
