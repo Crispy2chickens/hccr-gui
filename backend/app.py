@@ -4,6 +4,7 @@ from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
 from tensorflow.keras.models import Model
 from flask_cors import CORS  
 import numpy as np
+import traceback
 from PIL import Image
 import io
 import os
