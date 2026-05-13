@@ -75,9 +75,15 @@ def predict():
         img_array = img_array.astype('float32') / 255.0 
 
         predictions = model.predict(img_array)
-        predicted_class = np.argmax(predictions, axis=1)[0]
-
-        return jsonify({'predicted_class': CLASS_NAMES[predicted_class]})
+        top5_indices = np.argsort(predictions[0])[::-1][:5]
+        result = [
+            {
+                "character": CLASS_NAMES[i][:-4],
+                "confidence": float(predictions[0][i])
+            }
+            for i in top5_indices
+        ]
+        return jsonify({'predictions': result})
 
     except Exception as e:
         print(f"Error: {e}")
