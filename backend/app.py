@@ -2,31 +2,37 @@ from flask import Flask, request, jsonify
 from tensorflow.keras.applications import DenseNet121
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
 from tensorflow.keras.models import Model
-from flask_cors import CORS  
+from flask_cors import CORS
 import numpy as np
 import traceback
 from PIL import Image
 import io
 import os
+import urllib.request
 
 app = Flask(__name__)
-CORS(app)  
+CORS(app)
+
+MODEL_PATH = 'optimal_densenet.keras'
+MODEL_URL = os.environ.get('MODEL_URL', '')
 
 print("Loading model...")
 try:
+    if not os.path.exists(MODEL_PATH):
+        if not MODEL_URL:
+            raise FileNotFoundError("Model weights not found. Set the MODEL_URL environment variable.")
+        print(f"Downloading weights from {MODEL_URL} ...")
+        urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+        print("Download complete.")
+
     base_model = DenseNet121(include_top=False, weights=None, input_shape=(64, 64, 3))
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
     predictions = Dense(200, activation='softmax')(x)
     model = Model(inputs=base_model.input, outputs=predictions)
-    model.summary()  # Print model architecture for debugging
 
-    MODEL_PATH = 'optimal_densenet.keras'
-    if os.path.exists(MODEL_PATH):
-        model.load_weights(MODEL_PATH)
-        print("Model weights loaded successfully.")
-    else:
-        raise FileNotFoundError(f"Model weights not found at {MODEL_PATH}")
+    model.load_weights(MODEL_PATH)
+    print("Model weights loaded successfully.")
 except Exception as e:
     print(f"Error loading the model: {e}")
     traceback.print_exc()
