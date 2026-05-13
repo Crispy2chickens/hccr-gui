@@ -1,7 +1,4 @@
 from flask import Flask, request, jsonify
-from tensorflow.keras.applications import DenseNet121
-from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
-from tensorflow.keras.models import Model
 from flask_cors import CORS
 import numpy as np
 import traceback
@@ -16,8 +13,17 @@ CORS(app)
 MODEL_PATH = 'optimal_densenet.keras'
 MODEL_URL = os.environ.get('MODEL_URL', '')
 
-print("Loading model...")
-try:
+model = None
+
+def load_model():
+    global model
+    if model is not None:
+        return model
+
+    from tensorflow.keras.applications import DenseNet121
+    from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
+    from tensorflow.keras.models import Model
+
     if not os.path.exists(MODEL_PATH):
         if not MODEL_URL:
             raise FileNotFoundError("Model weights not found. Set the MODEL_URL environment variable.")
@@ -25,17 +31,15 @@ try:
         urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
         print("Download complete.")
 
+    print("Building model...")
     base_model = DenseNet121(include_top=False, weights=None, input_shape=(64, 64, 3))
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
     predictions = Dense(200, activation='softmax')(x)
     model = Model(inputs=base_model.input, outputs=predictions)
-
     model.load_weights(MODEL_PATH)
-    print("Model weights loaded successfully.")
-except Exception as e:
-    print(f"Error loading the model: {e}")
-    traceback.print_exc()
+    print("Model ready.")
+    return model
 
 CLASS_NAMES = ['墨.png', '竟.png', '章.png', '隐.png', '隔.png', '隘.png', '隙.png', '障.png', '隧.png',
                '隶.png', '难.png', '雀.png', '雁.png', '雄.png', '雅.png', '集.png', '雇.png', '雌.png',
@@ -72,20 +76,22 @@ def predict():
 
     file = request.files['file']
     try:
+        m = load_model()
+
         img = Image.open(io.BytesIO(file.read()))
         img = img.resize((64, 64))
         if img.mode != 'RGB':
             img = img.convert('RGB')
         img_array = np.array(img)
         img_array = np.expand_dims(img_array, axis=0)
-        img_array = img_array.astype('float32') / 255.0 
+        img_array = img_array.astype('float32') / 255.0
 
-        predictions = model.predict(img_array)
-        top5_indices = np.argsort(predictions[0])[::-1][:5]
+        preds = m.predict(img_array)
+        top5_indices = np.argsort(preds[0])[::-1][:5]
         result = [
             {
                 "character": CLASS_NAMES[i][:-4],
-                "confidence": float(predictions[0][i])
+                "confidence": float(preds[0][i])
             }
             for i in top5_indices
         ]
@@ -93,6 +99,7 @@ def predict():
 
     except Exception as e:
         print(f"Error: {e}")
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 if __name__ == '__main__':
