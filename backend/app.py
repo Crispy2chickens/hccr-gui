@@ -6,6 +6,7 @@ from PIL import Image
 import io
 import os
 import urllib.request
+import threading
 
 app = Flask(__name__)
 CORS(app)
@@ -14,32 +15,42 @@ MODEL_PATH = 'optimal_densenet.keras'
 MODEL_URL = os.environ.get('MODEL_URL', '')
 
 model = None
+model_lock = threading.Lock()
 
 def load_model():
     global model
-    if model is not None:
+    with model_lock:
+        if model is not None:
+            return model
+
+        from tensorflow.keras.applications import DenseNet121
+        from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
+        from tensorflow.keras.models import Model
+
+        if not os.path.exists(MODEL_PATH):
+            if not MODEL_URL:
+                raise FileNotFoundError("Model weights not found. Set the MODEL_URL environment variable.")
+            print(f"Downloading weights from {MODEL_URL} ...")
+            urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+            print("Download complete.")
+
+        print("Building model...")
+        base_model = DenseNet121(include_top=False, weights=None, input_shape=(64, 64, 3))
+        x = base_model.output
+        x = GlobalAveragePooling2D()(x)
+        predictions = Dense(200, activation='softmax')(x)
+        model = Model(inputs=base_model.input, outputs=predictions)
+        model.load_weights(MODEL_PATH)
+        print("Model ready.")
         return model
 
-    from tensorflow.keras.applications import DenseNet121
-    from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
-    from tensorflow.keras.models import Model
+def preload():
+    try:
+        load_model()
+    except Exception as e:
+        print(f"Preload failed: {e}")
 
-    if not os.path.exists(MODEL_PATH):
-        if not MODEL_URL:
-            raise FileNotFoundError("Model weights not found. Set the MODEL_URL environment variable.")
-        print(f"Downloading weights from {MODEL_URL} ...")
-        urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
-        print("Download complete.")
-
-    print("Building model...")
-    base_model = DenseNet121(include_top=False, weights=None, input_shape=(64, 64, 3))
-    x = base_model.output
-    x = GlobalAveragePooling2D()(x)
-    predictions = Dense(200, activation='softmax')(x)
-    model = Model(inputs=base_model.input, outputs=predictions)
-    model.load_weights(MODEL_PATH)
-    print("Model ready.")
-    return model
+threading.Thread(target=preload, daemon=True).start()
 
 CLASS_NAMES = ['墨.png', '竟.png', '章.png', '隐.png', '隔.png', '隘.png', '隙.png', '障.png', '隧.png',
                '隶.png', '难.png', '雀.png', '雁.png', '雄.png', '雅.png', '集.png', '雇.png', '雌.png',
@@ -76,7 +87,9 @@ def predict():
 
     file = request.files['file']
     try:
-        m = load_model()
+        m = model
+        if m is None:
+            return jsonify({'error': 'warming_up'}), 503
 
         img = Image.open(io.BytesIO(file.read()))
         img = img.resize((64, 64))
