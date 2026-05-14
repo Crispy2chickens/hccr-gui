@@ -53,7 +53,6 @@ def preload():
         print(f"[PRELOAD ERROR] {e}")
         traceback.print_exc()
 
-threading.Thread(target=preload, daemon=True).start()
 
 CLASS_NAMES = ['墨.png', '竟.png', '章.png', '隐.png', '隔.png', '隘.png', '隙.png', '障.png', '隧.png',
                '隶.png', '难.png', '雀.png', '雁.png', '雄.png', '雅.png', '集.png', '雇.png', '雌.png',
