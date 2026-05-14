@@ -2,6 +2,8 @@
 
 A full-stack web app for handwritten Chinese character recognition. Draw or upload a character to get the top-5 predictions from a DenseNet121 model trained on 200 characters from the HCCR dataset.
 
+**[Live Demo](https://hccr-gui.vercel.app/)**
+
 ## System Architecture
 
 - **Frontend:** React 19 SPA deployed on Vercel — supports freehand drawing and image upload, polls the backend for model readiness, and displays top-5 predictions with confidence bars.
