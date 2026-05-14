@@ -35,7 +35,9 @@ def load_model():
                 print("Download complete.")
 
             print("Loading ONNX model...")
-            session = ort.InferenceSession(MODEL_PATH, providers=['CPUExecutionProvider'])
+            opts = ort.SessionOptions()
+            opts.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
+            session = ort.InferenceSession(MODEL_PATH, sess_options=opts, providers=['CPUExecutionProvider'])
             print("Model ready.")
             return session
         except Exception as e:
@@ -46,8 +48,10 @@ def load_model():
 def preload():
     try:
         load_model()
-    except Exception:
-        pass
+    except Exception as e:
+        import traceback
+        print(f"[PRELOAD ERROR] {e}")
+        traceback.print_exc()
 
 threading.Thread(target=preload, daemon=True).start()
 
