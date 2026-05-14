@@ -395,6 +395,18 @@ body {
   padding: 0 32px 16px;
 }
 
+.status-loading {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 6px;
+}
+
+.status-error {
+  font-size: 0.8rem;
+  color: var(--primary);
+  margin-top: 6px;
+}
+
 /* Character list */
 .char-list-section {
   border-top: 1px solid var(--border);

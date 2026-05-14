@@ -5,6 +5,8 @@ __pycache__/
 *.so
 .Python
 optimal_densenet.keras
+model.onnx
+convert_to_onnx.py
 env/
 build/
 develop-eggs/

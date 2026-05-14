@@ -43,6 +43,27 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [previewUrl, setPreviewUrl] = useState(null);
+  const [modelReady, setModelReady] = useState(null); // null=unknown, true/false
+
+  React.useEffect(() => {
+    let timer;
+    const poll = async () => {
+      try {
+        const res = await axios.get(`${API_URL}/status`);
+        if (res.data.ready) {
+          setModelReady(true);
+        } else if (res.data.error) {
+          setModelReady(false);
+        } else {
+          timer = setTimeout(poll, 3000);
+        }
+      } catch {
+        timer = setTimeout(poll, 5000);
+      }
+    };
+    poll();
+    return () => clearTimeout(timer);
+  }, []);
 
   const predict = async (blob, url) => {
     setIsLoading(true);
@@ -60,7 +81,7 @@ const App = () => {
       setPredictions(res.data.predictions);
     } catch (err) {
       if (err.response?.status === 503) {
-        setError('Service is warming up — the model is still loading. Wait ~1 minute and try again.');
+        setError('Model is still loading — please wait a moment and try again.');
       } else {
         setError('Prediction failed. Make sure the backend server is running.');
       }
@@ -86,6 +107,12 @@ const App = () => {
         <header className="app-header">
           <h1 className="app-title">Chinese Character Recognition</h1>
           <p className="app-subtitle">Draw or upload a handwritten character to classify it</p>
+          {modelReady === false && (
+            <p className="status-error">Model failed to load. Check server logs.</p>
+          )}
+          {modelReady === null && (
+            <p className="status-loading">Model loading&hellip;</p>
+          )}
         </header>
 
         <div className="tab-bar">
