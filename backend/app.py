@@ -11,44 +11,43 @@ import threading
 app = Flask(__name__)
 CORS(app)
 
-MODEL_PATH = 'optimal_densenet.keras'
+MODEL_PATH = 'model.onnx'
 MODEL_URL = os.environ.get('MODEL_URL', '')
 
-model = None
+session = None
 model_lock = threading.Lock()
+model_error = None
 
 def load_model():
-    global model
+    global session, model_error
     with model_lock:
-        if model is not None:
-            return model
+        if session is not None:
+            return session
 
-        from tensorflow.keras.applications import DenseNet121
-        from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
-        from tensorflow.keras.models import Model
+        try:
+            import onnxruntime as ort
 
-        if not os.path.exists(MODEL_PATH):
-            if not MODEL_URL:
-                raise FileNotFoundError("Model weights not found. Set the MODEL_URL environment variable.")
-            print(f"Downloading weights from {MODEL_URL} ...")
-            urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
-            print("Download complete.")
+            if not os.path.exists(MODEL_PATH):
+                if not MODEL_URL:
+                    raise FileNotFoundError("model.onnx not found and MODEL_URL is not set.")
+                print(f"Downloading model from {MODEL_URL} ...")
+                urllib.request.urlretrieve(MODEL_URL, MODEL_PATH)
+                print("Download complete.")
 
-        print("Building model...")
-        base_model = DenseNet121(include_top=False, weights=None, input_shape=(64, 64, 3))
-        x = base_model.output
-        x = GlobalAveragePooling2D()(x)
-        predictions = Dense(200, activation='softmax')(x)
-        model = Model(inputs=base_model.input, outputs=predictions)
-        model.load_weights(MODEL_PATH)
-        print("Model ready.")
-        return model
+            print("Loading ONNX model...")
+            session = ort.InferenceSession(MODEL_PATH, providers=['CPUExecutionProvider'])
+            print("Model ready.")
+            return session
+        except Exception as e:
+            model_error = str(e)
+            print(f"Model load failed: {e}")
+            raise
 
 def preload():
     try:
         load_model()
-    except Exception as e:
-        print(f"Preload failed: {e}")
+    except Exception:
+        pass
 
 threading.Thread(target=preload, daemon=True).start()
 
@@ -78,7 +77,11 @@ CLASS_NAMES = ['墨.png', '竟.png', '章.png', '隐.png', '隔.png', '隘.png',
 
 @app.route('/')
 def home():
-    return "<h1>Welcome to the Image Classification API</h1><p>Use the /predict endpoint to upload an image for classification.</p>"
+    return "<h1>HCCR API</h1><p>POST /predict with a file field to classify a character.</p>"
+
+@app.route('/status')
+def status():
+    return jsonify({'ready': session is not None, 'error': model_error})
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -87,25 +90,22 @@ def predict():
 
     file = request.files['file']
     try:
-        m = model
-        if m is None:
+        sess = session
+        if sess is None:
             return jsonify({'error': 'warming_up'}), 503
 
         img = Image.open(io.BytesIO(file.read()))
         img = img.resize((64, 64))
         if img.mode != 'RGB':
             img = img.convert('RGB')
-        img_array = np.array(img)
+        img_array = np.array(img).astype('float32') / 255.0
         img_array = np.expand_dims(img_array, axis=0)
-        img_array = img_array.astype('float32') / 255.0
 
-        preds = m.predict(img_array)
+        input_name = sess.get_inputs()[0].name
+        preds = sess.run(None, {input_name: img_array})[0]
         top5_indices = np.argsort(preds[0])[::-1][:5]
         result = [
-            {
-                "character": CLASS_NAMES[i][:-4],
-                "confidence": float(preds[0][i])
-            }
+            {"character": CLASS_NAMES[i][:-4], "confidence": float(preds[0][i])}
             for i in top5_indices
         ]
         return jsonify({'predictions': result})
