@@ -1,79 +1,70 @@
-# Chinese Character Classification System
+# Chinese Character Recognition
 
-A robust full-stack solution for real-time handwritten Chinese character recognition using deep learning. This system leverages a DenseNet121 architecture to classify images of 200 distinct characters with high precision.
+A full-stack web app for handwritten Chinese character recognition. Draw or upload a character to get the top-5 predictions from a DenseNet121 model trained on 200 characters from the HCCR dataset.
 
 ## System Architecture
 
-The project is architected as a decoupled system to ensure modularity and scalability:
-
-- **Client Layer:** A React.js single-page application (SPA) focused on user experience and real-time visualization of model inference results.
-- **Service Layer:** A Flask-based RESTful API serving as the inference engine, handling image preprocessing and deep learning model execution.
-- **Inference Model:** A pre-trained DenseNet121 model optimized for 64x64 RGB input, facilitating high-density feature extraction with reduced parameter overhead.
-
-## Core Technical Stack
-
-### Backend (Deep Learning API)
-
-- **Engine:** Python / Flask
-- **Framework:** TensorFlow & Keras
-- **Image Processing:** PIL (Pillow) & NumPy
-- **Production Server:** Gunicorn (WSGI)
-- **Features:** CORS-enabled, standardized image normalization, and robust error management.
-
-### Frontend (User Interface)
-
-- **Framework:** React.js (v18+)
-- **HTTP Client:** Axios
-- **State Management:** React Functional Hooks
-- **Design:** Custom CSS with a focus on intuitive workflow and responsive image rendering.
+- **Frontend:** React 19 SPA deployed on Vercel — supports freehand drawing and image upload, polls the backend for model readiness, and displays top-5 predictions with confidence bars.
+- **Backend:** Flask REST API running on Gunicorn — loads a pre-trained ONNX model at startup and serves predictions via `/predict`.
+- **Model:** DenseNet121 trained on the [HCCR dataset](https://github.com/Crispy2chickens/hccr), served via `onnxruntime`. The model file is not committed; it is downloaded at runtime from `MODEL_URL`.
 
 ## Repository Structure
 
 ```text
 .
-├── backend/               # Python/Flask service and model logic
-│   └── app.py             # Main API entry point and model loading
-├── frontend/              # React.js application
-│   ├── public/            # Static assets
-│   └── src/               # Component and application logic
-└── README.md              # System documentation
+├── backend/
+│   ├── app.py                # Flask API (predict, status endpoints)
+│   ├── gunicorn.conf.py      # Gunicorn config (1 worker, post_fork model preload)
+│   └── requirements.txt
+└── frontend/
+    ├── public/
+    └── src/
+        ├── App.js
+        ├── DrawCanvas.js
+        └── FileUpload.js
 ```
 
-## Deployment Guide
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/status` | Returns `{ ready: bool, error: string\|null }` — used by the frontend to poll model load state |
+| `POST` | `/predict` | Accepts `multipart/form-data` with a `file` field; returns top-5 `{ character, confidence }` predictions |
+
+## Local Setup
 
 ### Prerequisites
 
 - Python 3.8+
-- Node.js 14+ / npm
-- Pre-trained weights: `optimal_densenet.keras` (must be placed in `backend/`)
+- Node.js 18+ / npm
+- `MODEL_URL` environment variable pointing to a hosted copy of `model.onnx`
 
-### Backend Setup
+### Backend
 
-1. Initialize the environment and install dependencies:
-   ```bash
-   cd backend
-   pip install flask tensorflow pillow numpy flask-cors gunicorn
-   ```
-2. Execute the production server:
-   ```bash
-   gunicorn -w 4 -b 0.0.0.0:5050 app:app
-   ```
+```bash
+cd backend
+pip install -r requirements.txt
+MODEL_URL=<your-model-url> gunicorn --config gunicorn.conf.py -b 0.0.0.0:5050 app:app
+```
 
-### Frontend Setup
+The model loads asynchronously after the worker starts. The `/status` endpoint returns `{ ready: false }` until loading completes.
 
-1. Install dependencies:
-   ```bash
-   cd frontend
-   npm install
-   ```
-2. Launch the development server:
-   ```bash
-   npm install react react-dom react-scripts axios web-vitals
-   ```
-   The application defaults to `http://localhost:3000`.
+### Frontend
 
-## Model Methodology
+```bash
+cd frontend
+npm install
+npm start
+```
 
-The underlying classification model utilizes the **DenseNet121** architecture, which minimizes the vanishing gradient problem and strengthens feature propagation through dense connectivity patterns. This makes it particularly effective for the complex structural nuances of handwritten Chinese characters.
+The frontend defaults to `http://localhost:5050` for the API. Override with the `REACT_APP_API_URL` environment variable if needed.
 
-The model was trained on the **HCCR dataset**. Technical specifics regarding the training pipeline, hyperparameter optimization, and data augmentation can be found in the primary research repository: [https://github.com/Crispy2chickens/hccr](https://github.com/Crispy2chickens/hccr).
+## Deployment
+
+The frontend is deployed on Vercel. Set `REACT_APP_API_URL` in the Vercel project environment variables to point at the hosted backend.
+
+The backend can be deployed on any platform that supports Python and Gunicorn. Set `MODEL_URL` to a hosted copy of the model file — the server will download it on first start if not already present.
+
+## Supported Characters (200)
+
+墨 竟 章 隐 隔 隘 隙 障 隧 隶 难 雀 雁 雄 雅 集 雇 雌 雍 雏 雕 雨 雪 零 雷 雹 雾 需 霄 震 霉 霍 霓 霖 霜 霞 露 霸 霹 青 靖 静 靛 非 靠 靡 面 革 靳 靴 靶 鞋 鞍 鞘 鞠 鞭 韦 韧 韩 韭 音 韵 韶 页 顶 顷 项 顺 须 顽 顾 顿 颁 颂 预 颅 领 颇 颈 颊 颐 频 颓 颖 颗 题 颜 额 颠 颤 颧 风 飘 飞 食 餐 饥 饭 饮 饯 饰 饱 饲 饵 饶 饺 饼 饿 馁 馅 馆 馈 馋 馏 馒 首 香 马 驭 驮 驯 驰 驱 驳 驴 驶 驹 驻 驼 驾 骂 骄 骆 骇 骋 验 骏 骑 骗 骚 骡 骤 骨 骸 髓 高 鬃 鬼 魁 魂 魄 魏 魔 鱼 鲁 鲍 鲜 鲤 鲸 鳃 鳖 鳞 鸟 鸡 鸣 鸥 鸦 鸭 鸯 鸳 鸵 鸽 鸿 鹃 鹅 鹊 鹏 鹤 鹰 鹿 麓 麦 麻 黄 黍 黎 黑 黔 默 鼎 鼓 鼠 鼻 齐 齿 龄 龋 龙 龚 龟
