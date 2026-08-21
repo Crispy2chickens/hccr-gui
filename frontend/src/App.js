@@ -103,13 +103,10 @@ const App = () => {
 
   return (
     <div className="app">
-      <div className="maintenance-banner">
-        ⚠️ The backend is temporarily offline while I migrate to a new host. Back up within a day — thanks for your patience!
-      </div>
       <div className="card">
         <header className="app-header">
           <h1 className="app-title">Chinese Character Recognition</h1>
-          <p className="app-subtitle">Draw or upload a handwritten character to classify it</p>
+          <p className="app-subtitle">Draw or upload a handwritten character to classify it. Supports 200 characters — see list below.</p>
           {modelReady === false && (
             <p className="status-error">Model failed to load. Check server logs.</p>
           )}
